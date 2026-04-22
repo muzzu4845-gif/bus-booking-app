@@ -1,0 +1,187 @@
+// controllers/bookingController.js
+const mongoose = require("mongoose");
+const Booking = require("../models/Booking");
+const Bus = require("../models/Bus");
+const AppError = require("../utils/AppError");
+const catchAsync = require("../utils/catchAsync");
+
+// ── Create Booking ────────────────────────────────────────────────────────────
+exports.createBooking = catchAsync(async (req, res, next) => {
+  const { busId, seats } = req.body;
+
+  if (!busId || !seats || seats.length === 0) {
+    return next(new AppError("Please provide busId and seats", 400));
+  }
+
+  // ── Atomic Update — Transaction இல்லாம double booking prevent பண்றோம் ──────
+  // $addToSet — already இருக்க seat add ஆகாது
+  // findOneAndUpdate — atomic operation, same time 2 requests வந்தாலும் safe
+  const bus = await Bus.findOneAndUpdate(
+    {
+      _id: busId,
+      isActive: true,
+      availableSeats: { $gte: seats.length }, // Enough seats இருக்கா
+      bookedSeats: { $not: { $elemMatch: { $in: seats } } }, // Seats already booked இல்லையா
+    },
+    {
+      $push: { bookedSeats: { $each: seats } }, // Seats add பண்ணு
+      $inc: { availableSeats: -seats.length },   // Available seats குறை
+    },
+    { new: true }
+  );
+
+  // Bus null-ஆ இருந்தா — seats already booked or bus இல்லை
+  if (!bus) {
+    // ஏன் fail ஆச்சுன்னு check பண்ணு
+    const existingBus = await Bus.findById(busId);
+    if (!existingBus) {
+      return next(new AppError("Bus not found", 404));
+    }
+    if (!existingBus.isActive) {
+      return next(new AppError("Bus is not available", 400));
+    }
+    if (existingBus.availableSeats < seats.length) {
+      return next(new AppError("Not enough seats available", 400));
+    }
+    // Seats already booked
+    const alreadyBooked = seats.filter((s) =>
+      existingBus.bookedSeats.includes(s)
+    );
+    return next(
+      new AppError(`Seats ${alreadyBooked.join(", ")} are already booked`, 400)
+    );
+  }
+
+  // Booking create பண்ணு
+  const totalAmount = bus.price * seats.length;
+
+  const booking = await Booking.create({
+    user: req.user.id,
+    bus: busId,
+    seats,
+    totalAmount,
+    status: "confirmed",
+    busSnapshot: {
+      name: bus.name,
+      busNumber: bus.busNumber,
+      from: bus.from,
+      to: bus.to,
+      date: bus.date,
+      departureTime: bus.departureTime,
+      arrivalTime: bus.arrivalTime,
+    },
+  });
+
+  res.status(201).json({
+    success: true,
+    message: "Booking confirmed!",
+    booking,
+  });
+});
+
+// ── Get My Bookings ───────────────────────────────────────────────────────────
+exports.getMyBookings = catchAsync(async (req, res, next) => {
+  const bookings = await Booking.find({ user: req.user.id })
+    .populate("bus", "name busNumber from to date departureTime arrivalTime price")
+    .sort("-createdAt");
+
+  res.status(200).json({
+    success: true,
+    count: bookings.length,
+    bookings,
+  });
+});
+
+// ── Cancel Booking ────────────────────────────────────────────────────────────
+exports.cancelBooking = catchAsync(async (req, res, next) => {
+  const booking = await Booking.findById(req.params.id);
+
+  if (!booking) {
+    return next(new AppError("Booking not found", 404));
+  }
+
+  if (booking.user.toString() !== req.user.id) {
+    return next(new AppError("You can only cancel your own booking", 403));
+  }
+
+  if (booking.status === "cancelled") {
+    return next(new AppError("Booking is already cancelled", 400));
+  }
+
+  // Seats release பண்ணு
+  const bus = await Bus.findById(booking.bus);
+  if (bus) {
+    bus.bookedSeats = bus.bookedSeats.filter(
+      (seat) => !booking.seats.includes(seat)
+    );
+    bus.availableSeats += booking.seats.length;
+    await bus.save();
+  }
+
+  booking.status = "cancelled";
+  booking.paymentStatus =
+    booking.paymentStatus === "paid" ? "refunded" : "unpaid";
+  await booking.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Booking cancelled successfully",
+    booking,
+  });
+});
+
+// ── Mock Payment ──────────────────────────────────────────────────────────────
+exports.mockPayment = catchAsync(async (req, res, next) => {
+  const booking = await Booking.findById(req.params.id);
+
+  if (!booking) {
+    return next(new AppError("Booking not found", 404));
+  }
+
+  if (booking.user.toString() !== req.user.id) {
+    return next(new AppError("Unauthorized", 403));
+  }
+
+  if (booking.paymentStatus === "paid") {
+    return next(new AppError("Already paid for this booking", 400));
+  }
+
+  if (booking.status === "cancelled") {
+    return next(new AppError("Cannot pay for a cancelled booking", 400));
+  }
+
+  const mockPaymentId = `PAY-${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 8)
+    .toUpperCase()}`;
+
+  const isSuccess = Math.random() > 0.1;
+  if (!isSuccess) {
+    return next(new AppError("Payment failed. Please try again.", 402));
+  }
+
+  booking.paymentStatus = "paid";
+  booking.paymentId = mockPaymentId;
+  await booking.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Payment successful!",
+    paymentId: mockPaymentId,
+    booking,
+  });
+});
+
+// ── Get All Bookings Admin ────────────────────────────────────────────────────
+exports.getAllBookings = catchAsync(async (req, res, next) => {
+  const bookings = await Booking.find()
+    .populate("user", "name email")
+    .populate("bus", "name busNumber from to date")
+    .sort("-createdAt");
+
+  res.status(200).json({
+    success: true,
+    count: bookings.length,
+    bookings,
+  });
+});
