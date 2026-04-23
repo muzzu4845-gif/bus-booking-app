@@ -15,45 +15,61 @@ export default function Payment() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
-  
-useEffect(() => {
-  fetchBooking();
-  // Razorpay script load பண்ணு
-  const script = document.createElement("script");
-  script.src = "https://checkout.razorpay.com/v1/checkout.js";
-  script.async = true;
-  script.onload = () => console.log("Razorpay loaded ✅");
-  script.onerror = () => console.log("Razorpay failed ❌");
-  document.body.appendChild(script);
-}, []);
+
+  useEffect(() => {
+    // Razorpay script load பண்ணு
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => console.log("Razorpay loaded ✅");
+    script.onerror = () => console.log("Razorpay failed ❌");
+    document.body.appendChild(script);
+
+    fetchBooking();
+
+    return () => {
+      // Cleanup
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
 
   const fetchBooking = async () => {
     try {
+      const token = localStorage.getItem("token");
+      console.log("Token exists:", !!token);
+
       const data = await bookingService.getMyBookings();
+      console.log("Bookings:", data.bookings.length);
+
       const found = data.bookings.find((b) => b._id === bookingId);
+      console.log("Found booking:", found);
+
       if (!found) {
         toast.error("Booking not found");
-        navigate("/history");
+        setLoading(false);
         return;
       }
       setBooking(found);
       if (found.paymentStatus === "paid") setPaid(true);
     } catch (error) {
-      toast.error("Failed to load booking");
-      navigate("/history");
+      console.error("Fetch booking error:", error.response?.status, error.response?.data);
+      toast.error("Failed to load booking details");
     } finally {
       setLoading(false);
     }
   };
 
   const handlePayment = async () => {
+    console.log("Pay clicked! BookingId:", bookingId);
     setPaying(true);
     try {
-      // Step 1 — Razorpay order create பண்ணு
+      console.log("Creating Razorpay order...");
       const res = await api.post(`/bookings/${bookingId}/create-order`);
+      console.log("Order created:", res.data);
       const { order, key } = res.data;
 
-      // Step 2 — Razorpay checkout popup open பண்ணு
       const options = {
         key,
         amount: order.amount,
@@ -62,8 +78,8 @@ useEffect(() => {
         description: `Booking #${bookingId.slice(-6).toUpperCase()}`,
         order_id: order.id,
         handler: async (response) => {
-          // Step 3 — Payment success — verify பண்ணு
           try {
+            console.log("Payment response:", response);
             await api.post(`/bookings/${bookingId}/verify-payment`, {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
@@ -72,12 +88,13 @@ useEffect(() => {
             setPaid(true);
             toast.success("Payment successful! 🎉");
           } catch (err) {
+            console.error("Verify error:", err);
             toast.error("Payment verification failed");
           }
         },
         prefill: {
-          name: booking?.user?.name || "",
-          email: booking?.user?.email || "",
+          name: "",
+          email: "",
         },
         theme: {
           color: "#6C63FF",
@@ -90,9 +107,16 @@ useEffect(() => {
         },
       };
 
+      if (!window.Razorpay) {
+        toast.error("Razorpay not loaded. Please refresh!");
+        setPaying(false);
+        return;
+      }
+
       const rzp = new window.Razorpay(options);
       rzp.open();
     } catch (error) {
+      console.error("Payment error:", error.response?.status, error.response?.data);
       toast.error(error.response?.data?.message || "Payment failed");
       setPaying(false);
     }
@@ -102,6 +126,22 @@ useEffect(() => {
     return (
       <div className="min-h-screen bg-dark-300 flex items-center justify-center">
         <div className="text-slate-400">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!booking) {
+    return (
+      <div className="min-h-screen bg-dark-300 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-slate-400 mb-4">Booking not found</p>
+          <button
+            onClick={() => navigate("/history")}
+            className="bg-primary text-white px-4 py-2 rounded-lg"
+          >
+            View My Bookings
+          </button>
+        </div>
       </div>
     );
   }
@@ -116,7 +156,6 @@ useEffect(() => {
           animate={{ opacity: 1, y: 0 }}
           className="bg-dark-200 border border-white/10 rounded-2xl p-8"
         >
-          {/* Success State */}
           {paid ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -190,7 +229,6 @@ useEffect(() => {
                 Complete Payment
               </h2>
 
-              {/* Order Summary */}
               <div className="bg-dark-300 rounded-xl p-4 mb-6 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Bus</span>
@@ -216,7 +254,6 @@ useEffect(() => {
                 </div>
               </div>
 
-              {/* Razorpay Info */}
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-6">
                 <p className="text-xs text-slate-400 text-center">
                   🔒 Secured by Razorpay — Test Mode
