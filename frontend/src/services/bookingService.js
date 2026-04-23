@@ -17,8 +17,13 @@ export const bookingService = {
     return res.data;
   },
 
-  payBooking: async (id) => {
-    const res = await api.post(`/bookings/${id}/pay`);
+  createOrder: async (id) => {
+    const res = await api.post(`/bookings/${id}/create-order`);
+    return res.data;
+  },
+
+  verifyPayment: async (id, paymentData) => {
+    const res = await api.post(`/bookings/${id}/verify-payment`, paymentData);
     return res.data;
   },
 };
