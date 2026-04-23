@@ -1,4 +1,3 @@
-// routes/bookingRoutes.js
 const express = require("express");
 const router = express.Router();
 
@@ -7,20 +6,20 @@ const {
   getMyBookings,
   cancelBooking,
   getAllBookings,
-  mockPayment, 
+  createPaymentOrder,
+  verifyPayment,
 } = require("../controllers/bookingController");
 
 const { protect, restrictTo } = require("../middleware/authMiddleware");
 
-// எல்லா booking routes உம் login வேணும்
 router.use(protect);
 
 router.post("/", createBooking);
-router.post("/:id/pay", mockPayment);
 router.get("/my", getMyBookings);
 router.put("/:id/cancel", cancelBooking);
+router.post("/:id/create-order", createPaymentOrder);
+router.post("/:id/verify-payment", verifyPayment);
 
-// Admin only
 router.get("/admin/all", restrictTo("admin"), getAllBookings);
 
 module.exports = router;
