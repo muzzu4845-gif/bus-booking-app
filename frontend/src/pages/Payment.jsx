@@ -1,10 +1,11 @@
-// Payment.jsx — Mock payment page
+// Payment.jsx — Razorpay payment integration
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import Navbar from "../components/common/Navbar";
 import { bookingService } from "../services/bookingService";
+import api from "../services/api";
 
 export default function Payment() {
   const { bookingId } = useParams();
@@ -15,40 +16,81 @@ export default function Payment() {
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
 
-  // Booking details fetch பண்ணு
   useEffect(() => {
-    const fetchBooking = async () => {
-      try {
-        // My bookings la இருந்து இந்த booking கண்டுபிடி
-        const data = await bookingService.getMyBookings();
-        const found = data.bookings.find((b) => b._id === bookingId);
-        if (!found) {
-          toast.error("Booking not found");
-          navigate("/history");
-          return;
-        }
-        setBooking(found);
-        // Already paid-ஆ இருந்தா paid state set பண்ணு
-        if (found.paymentStatus === "paid") setPaid(true);
-      } catch (error) {
-        toast.error("Failed to load booking");
-        navigate("/history");
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchBooking();
-  }, [bookingId, navigate]);
+    // Razorpay script load பண்ணு
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    document.body.appendChild(script);
+  }, []);
+
+  const fetchBooking = async () => {
+    try {
+      const data = await bookingService.getMyBookings();
+      const found = data.bookings.find((b) => b._id === bookingId);
+      if (!found) {
+        toast.error("Booking not found");
+        navigate("/history");
+        return;
+      }
+      setBooking(found);
+      if (found.paymentStatus === "paid") setPaid(true);
+    } catch (error) {
+      toast.error("Failed to load booking");
+      navigate("/history");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handlePayment = async () => {
     setPaying(true);
     try {
-      await bookingService.payBooking(bookingId);
-      setPaid(true);
-      toast.success("Payment successful! 🎉");
+      // Step 1 — Razorpay order create பண்ணு
+      const res = await api.post(`/bookings/${bookingId}/create-order`);
+      const { order, key } = res.data;
+
+      // Step 2 — Razorpay checkout popup open பண்ணு
+      const options = {
+        key,
+        amount: order.amount,
+        currency: "INR",
+        name: "BusGo",
+        description: `Booking #${bookingId.slice(-6).toUpperCase()}`,
+        order_id: order.id,
+        handler: async (response) => {
+          // Step 3 — Payment success — verify பண்ணு
+          try {
+            await api.post(`/bookings/${bookingId}/verify-payment`, {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            setPaid(true);
+            toast.success("Payment successful! 🎉");
+          } catch (err) {
+            toast.error("Payment verification failed");
+          }
+        },
+        prefill: {
+          name: booking?.user?.name || "",
+          email: booking?.user?.email || "",
+        },
+        theme: {
+          color: "#6C63FF",
+        },
+        modal: {
+          ondismiss: () => {
+            setPaying(false);
+            toast.error("Payment cancelled");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
     } catch (error) {
-      toast.error(error.response?.data?.message || "Payment failed. Try again!");
-    } finally {
+      toast.error(error.response?.data?.message || "Payment failed");
       setPaying(false);
     }
   };
@@ -71,7 +113,6 @@ export default function Payment() {
           animate={{ opacity: 1, y: 0 }}
           className="bg-dark-200 border border-white/10 rounded-2xl p-8"
         >
-
           {/* Success State */}
           {paid ? (
             <motion.div
@@ -99,17 +140,12 @@ export default function Payment() {
                 </p>
               )}
 
-              {/* Ticket summary */}
               <div className="bg-dark-300 rounded-xl p-4 text-left mb-6 space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Route</span>
                   <span className="text-white capitalize">
                     {booking?.busSnapshot?.from} → {booking?.busSnapshot?.to}
                   </span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Date</span>
-                  <span className="text-white">{booking?.busSnapshot?.date}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Seats</span>
@@ -146,7 +182,6 @@ export default function Payment() {
             </motion.div>
 
           ) : (
-            // Payment Form
             <>
               <h2 className="text-xl font-bold text-white mb-6">
                 Complete Payment
@@ -165,10 +200,6 @@ export default function Payment() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Date</span>
-                  <span className="text-white">{booking?.busSnapshot?.date}</span>
-                </div>
-                <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Seats</span>
                   <span className="text-white">
                     {booking?.seats?.sort((a, b) => a - b).join(", ")}
@@ -182,33 +213,14 @@ export default function Payment() {
                 </div>
               </div>
 
-              {/* Mock Card UI */}
-              <div className="bg-gradient-to-br from-primary/20 to-secondary/10 border border-primary/20 rounded-xl p-5 mb-6">
-                <p className="text-xs text-slate-500 mb-3 uppercase tracking-wider">
-                  Mock Payment — No real money involved
+              {/* Razorpay Info */}
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-6">
+                <p className="text-xs text-slate-400 text-center">
+                  🔒 Secured by Razorpay — Test Mode
                 </p>
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Card Number: 4242 4242 4242 4242"
-                    disabled
-                    className="w-full bg-dark-300/50 border border-white/10 rounded-lg px-4 py-2.5 text-slate-500 text-sm"
-                  />
-                  <div className="grid grid-cols-2 gap-3">
-                    <input
-                      type="text"
-                      placeholder="MM/YY: 12/28"
-                      disabled
-                      className="bg-dark-300/50 border border-white/10 rounded-lg px-4 py-2.5 text-slate-500 text-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="CVV: 123"
-                      disabled
-                      className="bg-dark-300/50 border border-white/10 rounded-lg px-4 py-2.5 text-slate-500 text-sm"
-                    />
-                  </div>
-                </div>
+                <p className="text-xs text-slate-500 text-center mt-1">
+                  Test Card: 4111 1111 1111 1111 | CVV: 123 | Expiry: 12/28
+                </p>
               </div>
 
               <motion.button
@@ -218,12 +230,8 @@ export default function Payment() {
                 disabled={paying}
                 className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50"
               >
-                {paying ? "Processing..." : `Pay ₹${booking?.totalAmount}`}
+                {paying ? "Opening Payment..." : `Pay ₹${booking?.totalAmount}`}
               </motion.button>
-
-              <p className="text-center text-xs text-slate-600 mt-3">
-                🔒 This is a mock payment — no real transaction
-              </p>
             </>
           )}
         </motion.div>
