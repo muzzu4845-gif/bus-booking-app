@@ -87,11 +87,11 @@ const busSchema = new mongoose.Schema(
       default: true, // false ஆனா search results la வராது
     },
 
-    date: {
-      type: String,
-      required: [true, "Travel date is required"],
-      // "2024-12-25" format
-    },
+ date: {
+  type: String,
+  required: false,
+  default: null,
+},
   },
   {
     timestamps: true,

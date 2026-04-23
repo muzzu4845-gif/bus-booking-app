@@ -12,7 +12,6 @@ exports.searchBuses = catchAsync(async (req, res, next) => {
     return next(new AppError("Please provide from and to", 400));
   }
 
-  // Date optional — இல்லன்னா எல்லா dates லயும் search பண்ணும்
   const query = {
     from: from.toLowerCase(),
     to: to.toLowerCase(),
@@ -21,8 +20,13 @@ exports.searchBuses = catchAsync(async (req, res, next) => {
   };
 
   if (date) {
-    query.date = date;
+    // Date போட்டா — அந்த date buses + date இல்லா buses (everyday) show ஆகும்
+    query.$or = [
+      { date: date },
+      { date: null },
+    ];
   }
+  // Date இல்லன்னா — எல்லாமே show ஆகும்
 
   const buses = await Bus.find(query);
 
