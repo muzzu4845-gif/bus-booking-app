@@ -112,31 +112,46 @@ exports.cancelBooking = catchAsync(async (req, res, next) => {
 exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   const booking = await Booking.findById(req.params.id);
 
+  console.log("=== CREATE ORDER ===");
+  console.log("Booking ID:", req.params.id);
+  console.log("User ID:", req.user.id);
+  console.log("Booking user:", booking?.user?.toString());
+  console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID ? "exists" : "MISSING!");
+  console.log("RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET ? "exists" : "MISSING!");
+
   if (!booking) return next(new AppError("Booking not found", 404));
-  if (booking.user.toString() !== req.user.id) return next(new AppError("Unauthorized", 403));
+  if (booking.user.toString() !== req.user.id) {
+    console.log("User mismatch!", booking.user.toString(), "vs", req.user.id);
+    return next(new AppError("Unauthorized", 403));
+  }
   if (booking.paymentStatus === "paid") return next(new AppError("Already paid", 400));
   if (booking.status === "cancelled") return next(new AppError("Cannot pay for cancelled booking", 400));
 
-  // Amount paise la (₹1 = 100 paise)
-  const order = await razorpay.orders.create({
-    amount: booking.totalAmount * 100,
-    currency: "INR",
-    receipt: `booking_${booking._id}`,
-  });
+  try {
+    const order = await razorpay.orders.create({
+      amount: booking.totalAmount * 100,
+      currency: "INR",
+      receipt: `booking_${booking._id}`,
+    });
 
-  res.status(200).json({
-    success: true,
-    order,
-    booking,
-    key: process.env.RAZORPAY_KEY_ID,
-  });
+    console.log("Razorpay order created:", order.id);
+
+    res.status(200).json({
+      success: true,
+      order,
+      booking,
+      key: process.env.RAZORPAY_KEY_ID,
+    });
+  } catch (razorpayError) {
+    console.error("Razorpay error:", razorpayError.message);
+    return next(new AppError(`Razorpay error: ${razorpayError.message}`, 500));
+  }
 });
 
 // ── Verify Payment ────────────────────────────────────────────────────────────
 exports.verifyPayment = catchAsync(async (req, res, next) => {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-  // Signature verify — tamper check
   const body = razorpay_order_id + "|" + razorpay_payment_id;
   const expectedSignature = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
