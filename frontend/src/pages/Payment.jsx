@@ -15,14 +15,17 @@ export default function Payment() {
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
   const [paid, setPaid] = useState(false);
-
-  useEffect(() => {
-    fetchBooking();
-    // Razorpay script load பண்ணு
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    document.body.appendChild(script);
-  }, []);
+  
+useEffect(() => {
+  fetchBooking();
+  // Razorpay script load பண்ணு
+  const script = document.createElement("script");
+  script.src = "https://checkout.razorpay.com/v1/checkout.js";
+  script.async = true;
+  script.onload = () => console.log("Razorpay loaded ✅");
+  script.onerror = () => console.log("Razorpay failed ❌");
+  document.body.appendChild(script);
+}, []);
 
   const fetchBooking = async () => {
     try {
