@@ -6,11 +6,16 @@ import Navbar from "../components/common/Navbar";
 import BusCard from "../components/bus/BusCard";
 import { busService } from "../services/busService";
 
+const CITIES = [
+  "Chennai", "Bangalore", "Tirupattur", "Vellore",
+  "Salem", "Coimbatore", "Madurai", "Trichy",
+  "Hyderabad", "Mumbai"
+];
+
 export default function SearchBus() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  // URL params la இருந்து values எடு
   const [form, setForm] = useState({
     from: searchParams.get("from") || "",
     to: searchParams.get("to") || "",
@@ -19,18 +24,18 @@ export default function SearchBus() {
 
   const [buses, setBuses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searched, setSearched] = useState(false); // Search பண்ணியிருக்கோமா nu track பண்ண
+  const [searched, setSearched] = useState(false);
 
-  // Page load ஆகும் போது — URL la params இருந்தா auto search பண்ணு
+  // Page load ஆகும் போது auto search
   useEffect(() => {
-    if (form.from && form.to && form.date) {
+    if (form.from && form.to) {
       handleSearch();
     }
   }, []); // eslint-disable-line
 
   const handleSearch = async (e) => {
     e?.preventDefault();
-    if (!form.from || !form.to || !form.date) return;
+    if (!form.from || !form.to) return;
 
     setLoading(true);
     setSearched(true);
@@ -39,8 +44,8 @@ export default function SearchBus() {
       const data = await busService.searchBuses(form.from, form.to, form.date);
       setBuses(data.buses);
 
-      // URL update பண்ணு — share பண்ண easy ஆகும்
-      navigate(`/search?from=${form.from}&to=${form.to}&date=${form.date}`, {
+      const dateQuery = form.date ? `&date=${form.date}` : "";
+      navigate(`/search?from=${form.from}&to=${form.to}${dateQuery}`, {
         replace: true,
       });
     } catch (error) {
@@ -68,33 +73,38 @@ export default function SearchBus() {
           <form onSubmit={handleSearch}>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
 
-              <input
-                type="text"
-                name="from"
+              {/* From Dropdown */}
+              <select
                 value={form.from}
                 onChange={(e) => setForm({ ...form, from: e.target.value })}
-                placeholder="From"
                 required
-                className="bg-dark-300 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-primary transition-colors"
-              />
+                className="bg-dark-300 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
+              >
+                <option value="">From</option>
+                {CITIES.map((city) => (
+                  <option key={city} value={city.toLowerCase()}>{city}</option>
+                ))}
+              </select>
 
-              <input
-                type="text"
-                name="to"
+              {/* To Dropdown */}
+              <select
                 value={form.to}
                 onChange={(e) => setForm({ ...form, to: e.target.value })}
-                placeholder="To"
                 required
-                className="bg-dark-300 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-primary transition-colors"
-              />
+                className="bg-dark-300 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
+              >
+                <option value="">To</option>
+                {CITIES.filter(c => c.toLowerCase() !== form.from).map((city) => (
+                  <option key={city} value={city.toLowerCase()}>{city}</option>
+                ))}
+              </select>
 
+              {/* Date — Optional */}
               <input
                 type="date"
-                name="date"
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
                 min={today}
-                required
                 className="bg-dark-300 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-primary transition-colors"
               />
 
@@ -112,13 +122,9 @@ export default function SearchBus() {
 
         {/* Results */}
         {loading ? (
-          // Loading skeleton
           <div className="space-y-4">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-dark-200 border border-white/10 rounded-2xl p-6 animate-pulse"
-              >
+              <div key={i} className="bg-dark-200 border border-white/10 rounded-2xl p-6 animate-pulse">
                 <div className="h-4 bg-white/5 rounded w-1/3 mb-3" />
                 <div className="h-8 bg-white/5 rounded w-1/2 mb-3" />
                 <div className="h-4 bg-white/5 rounded w-full" />
@@ -126,22 +132,12 @@ export default function SearchBus() {
             ))}
           </div>
         ) : searched && buses.length === 0 ? (
-          // No results
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20"
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-20">
             <span className="text-5xl">🚌</span>
-            <h3 className="text-white text-xl font-semibold mt-4">
-              No buses found
-            </h3>
-            <p className="text-slate-400 mt-2">
-              Try a different route or date
-            </p>
+            <h3 className="text-white text-xl font-semibold mt-4">No buses found</h3>
+            <p className="text-slate-400 mt-2">Try a different route or date</p>
           </motion.div>
         ) : (
-          // Bus list
           <div className="space-y-4">
             {searched && (
               <p className="text-slate-400 text-sm">

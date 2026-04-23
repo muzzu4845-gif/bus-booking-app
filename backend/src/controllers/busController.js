@@ -8,17 +8,23 @@ const catchAsync = require("../utils/catchAsync");
 exports.searchBuses = catchAsync(async (req, res, next) => {
   const { from, to, date } = req.query;
 
-  if (!from || !to || !date) {
-    return next(new AppError("Please provide from, to and date", 400));
+  if (!from || !to) {
+    return next(new AppError("Please provide from and to", 400));
   }
 
-  const buses = await Bus.find({
+  // Date optional — இல்லன்னா எல்லா dates லயும் search பண்ணும்
+  const query = {
     from: from.toLowerCase(),
     to: to.toLowerCase(),
-    date,
     isActive: true,
-    availableSeats: { $gt: 0 }, // 0 seats இருந்தா show பண்ணாதே
-  });
+    availableSeats: { $gt: 0 },
+  };
+
+  if (date) {
+    query.date = date;
+  }
+
+  const buses = await Bus.find(query);
 
   res.status(200).json({
     success: true,
