@@ -143,9 +143,11 @@ exports.createPaymentOrder = catchAsync(async (req, res, next) => {
       key: process.env.RAZORPAY_KEY_ID,
     });
   } catch (razorpayError) {
-    console.error("Razorpay error:", razorpayError.message);
-    return next(new AppError(`Razorpay error: ${razorpayError.message}`, 500));
-  }
+  console.error("Razorpay full error:", JSON.stringify(razorpayError));
+  console.error("Razorpay error message:", razorpayError?.message);
+  console.error("Razorpay error description:", razorpayError?.error?.description);
+  return next(new AppError(`Razorpay error: ${JSON.stringify(razorpayError)}`, 500));
+}
 });
 
 // ── Verify Payment ────────────────────────────────────────────────────────────
