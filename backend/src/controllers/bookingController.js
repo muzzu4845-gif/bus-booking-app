@@ -1,10 +1,8 @@
 // controllers/bookingController.js
 const Booking = require("../models/Booking");
 const Bus = require("../models/Bus");
-const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const catchAsync = require("../utils/catchAsync");
-const emailService = require("../services/emailService");
 
 // ── Create Booking ────────────────────────────────────────────────────────────
 exports.createBooking = catchAsync(async (req, res, next) => {
@@ -56,13 +54,6 @@ exports.createBooking = catchAsync(async (req, res, next) => {
     },
   });
 
-  // Booking confirmation email
-  try {
-    const user = await User.findById(req.user.id);
-    await emailService.sendBookingConfirmation(user.email, user.name, booking);
-  } catch (emailError) {
-    console.error("Booking email failed:", emailError.message);
-  }
 
   res.status(201).json({
     success: true,
@@ -103,13 +94,6 @@ exports.cancelBooking = catchAsync(async (req, res, next) => {
   booking.paymentStatus = booking.paymentStatus === "paid" ? "refunded" : "unpaid";
   await booking.save();
 
-  // Cancellation email
-  try {
-    const user = await User.findById(req.user.id);
-    await emailService.sendBookingCancellation(user.email, user.name, booking);
-  } catch (emailError) {
-    console.error("Cancel email failed:", emailError.message);
-  }
 
   res.status(200).json({
     success: true,
@@ -136,13 +120,6 @@ exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   booking.paymentId = mockPaymentId;
   await booking.save();
 
-  // Payment success email
-  try {
-    const user = await User.findById(req.user.id);
-    await emailService.sendPaymentSuccess(user.email, user.name, booking);
-  } catch (emailError) {
-    console.error("Payment email failed:", emailError.message);
-  }
 
   res.status(200).json({
     success: true,
