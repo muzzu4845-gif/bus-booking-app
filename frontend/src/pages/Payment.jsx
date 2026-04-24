@@ -1,4 +1,4 @@
-// Payment.jsx — Razorpay payment integration
+// Payment.jsx — Mock payment
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -17,35 +17,13 @@ export default function Payment() {
   const [paid, setPaid] = useState(false);
 
   useEffect(() => {
-    // Razorpay script load பண்ணு
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => console.log("Razorpay loaded ✅");
-    script.onerror = () => console.log("Razorpay failed ❌");
-    document.body.appendChild(script);
-
     fetchBooking();
-
-    return () => {
-      // Cleanup
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
   }, []);
 
   const fetchBooking = async () => {
     try {
-      const token = localStorage.getItem("token");
-      console.log("Token exists:", !!token);
-
       const data = await bookingService.getMyBookings();
-      console.log("Bookings:", data.bookings.length);
-
       const found = data.bookings.find((b) => b._id === bookingId);
-      console.log("Found booking:", found);
-
       if (!found) {
         toast.error("Booking not found");
         setLoading(false);
@@ -54,7 +32,6 @@ export default function Payment() {
       setBooking(found);
       if (found.paymentStatus === "paid") setPaid(true);
     } catch (error) {
-      console.error("Fetch booking error:", error.response?.status, error.response?.data);
       toast.error("Failed to load booking details");
     } finally {
       setLoading(false);
@@ -62,62 +39,17 @@ export default function Payment() {
   };
 
   const handlePayment = async () => {
-    console.log("Pay clicked! BookingId:", bookingId);
     setPaying(true);
     try {
-      console.log("Creating Razorpay order...");
       const res = await api.post(`/bookings/${bookingId}/create-order`);
-      console.log("Order created:", res.data);
-      const { order, key } = res.data;
-
-      const options = {
-        key,
-        amount: order.amount,
-        currency: "INR",
-        name: "BusGo",
-        description: `Booking #${bookingId.slice(-6).toUpperCase()}`,
-        order_id: order.id,
-        handler: async (response) => {
-          try {
-            console.log("Payment response:", response);
-            await api.post(`/bookings/${bookingId}/verify-payment`, {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            setPaid(true);
-            toast.success("Payment successful! 🎉");
-          } catch (err) {
-            console.error("Verify error:", err);
-            toast.error("Payment verification failed");
-          }
-        },
-        prefill: {
-          name: "",
-          email: "",
-        },
-        theme: {
-          color: "#6C63FF",
-        },
-        modal: {
-          ondismiss: () => {
-            setPaying(false);
-            toast.error("Payment cancelled");
-          },
-        },
-      };
-
-      if (!window.Razorpay) {
-        toast.error("Razorpay not loaded. Please refresh!");
-        setPaying(false);
-        return;
+      if (res.data.success) {
+        setPaid(true);
+        setBooking(res.data.booking);
+        toast.success("Payment successful! 🎉");
       }
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
     } catch (error) {
-      console.error("Payment error:", error.response?.status, error.response?.data);
       toast.error(error.response?.data?.message || "Payment failed");
+    } finally {
       setPaying(false);
     }
   };
@@ -256,10 +188,7 @@ export default function Payment() {
 
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 mb-6">
                 <p className="text-xs text-slate-400 text-center">
-                  🔒 Secured by Razorpay — Test Mode
-                </p>
-                <p className="text-xs text-slate-500 text-center mt-1">
-                  Test Card: 4111 1111 1111 1111 | CVV: 123 | Expiry: 12/28
+                  🔒 Mock Payment — No real money involved
                 </p>
               </div>
 
@@ -270,7 +199,7 @@ export default function Payment() {
                 disabled={paying}
                 className="w-full bg-primary hover:bg-primary/80 text-white font-semibold py-3 rounded-xl transition-all disabled:opacity-50"
               >
-                {paying ? "Opening Payment..." : `Pay ₹${booking?.totalAmount}`}
+                {paying ? "Processing..." : `Pay ₹${booking?.totalAmount}`}
               </motion.button>
             </>
           )}

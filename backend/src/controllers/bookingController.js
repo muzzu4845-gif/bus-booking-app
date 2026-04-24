@@ -108,46 +108,39 @@ exports.cancelBooking = catchAsync(async (req, res, next) => {
   });
 });
 
-// ── Create Razorpay Order ─────────────────────────────────────────────────────
+// ── Mock Payment (Razorpay replace) ──────────────────────────────────────────
 exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   const booking = await Booking.findById(req.params.id);
 
-  console.log("=== CREATE ORDER ===");
-  console.log("Booking ID:", req.params.id);
-  console.log("User ID:", req.user.id);
-  console.log("Booking user:", booking?.user?.toString());
-  console.log("RAZORPAY_KEY_ID:", process.env.RAZORPAY_KEY_ID ? "exists" : "MISSING!");
-  console.log("RAZORPAY_KEY_SECRET:", process.env.RAZORPAY_KEY_SECRET ? "exists" : "MISSING!");
-
   if (!booking) return next(new AppError("Booking not found", 404));
-  if (booking.user.toString() !== req.user.id) {
-    console.log("User mismatch!", booking.user.toString(), "vs", req.user.id);
-    return next(new AppError("Unauthorized", 403));
-  }
+  if (booking.user.toString() !== req.user.id) return next(new AppError("Unauthorized", 403));
   if (booking.paymentStatus === "paid") return next(new AppError("Already paid", 400));
   if (booking.status === "cancelled") return next(new AppError("Cannot pay for cancelled booking", 400));
 
-  try {
-    const order = await razorpay.orders.create({
-      amount: booking.totalAmount * 100,
-      currency: "INR",
-      receipt: `booking_${booking._id}`,
-    });
+  // Mock payment — directly paid mark பண்ணு
+  const mockPaymentId = `PAY-${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 8)
+    .toUpperCase()}`;
 
-    console.log("Razorpay order created:", order.id);
+  booking.paymentStatus = "paid";
+  booking.paymentId = mockPaymentId;
+  await booking.save();
 
-    res.status(200).json({
-      success: true,
-      order,
-      booking,
-      key: process.env.RAZORPAY_KEY_ID,
-    });
-  } catch (razorpayError) {
-  console.error("Razorpay full error:", JSON.stringify(razorpayError));
-  console.error("Razorpay error message:", razorpayError?.message);
-  console.error("Razorpay error description:", razorpayError?.error?.description);
-  return next(new AppError(`Razorpay error: ${JSON.stringify(razorpayError)}`, 500));
-}
+  res.status(200).json({
+    success: true,
+    message: "Payment successful! 🎉",
+    paymentId: mockPaymentId,
+    booking,
+  });
+});
+
+// ── Verify Payment — not needed for mock ─────────────────────────────────────
+exports.verifyPayment = catchAsync(async (req, res, next) => {
+  res.status(200).json({
+    success: true,
+    message: "Payment verified!",
+  });
 });
 
 // ── Verify Payment ────────────────────────────────────────────────────────────
