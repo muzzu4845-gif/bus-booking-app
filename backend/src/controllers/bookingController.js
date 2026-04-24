@@ -1,16 +1,10 @@
 // controllers/bookingController.js
 const Booking = require("../models/Booking");
 const Bus = require("../models/Bus");
+const User = require("../models/User");
 const AppError = require("../utils/AppError");
 const catchAsync = require("../utils/catchAsync");
-const Razorpay = require("razorpay");
-const crypto = require("crypto");
-
-// Razorpay instance
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+const emailService = require("../services/emailService");
 
 // ── Create Booking ────────────────────────────────────────────────────────────
 exports.createBooking = catchAsync(async (req, res, next) => {
@@ -62,6 +56,14 @@ exports.createBooking = catchAsync(async (req, res, next) => {
     },
   });
 
+  // Booking confirmation email
+  try {
+    const user = await User.findById(req.user.id);
+    await emailService.sendBookingConfirmation(user.email, user.name, booking);
+  } catch (emailError) {
+    console.error("Booking email failed:", emailError.message);
+  }
+
   res.status(201).json({
     success: true,
     message: "Booking confirmed!",
@@ -101,6 +103,14 @@ exports.cancelBooking = catchAsync(async (req, res, next) => {
   booking.paymentStatus = booking.paymentStatus === "paid" ? "refunded" : "unpaid";
   await booking.save();
 
+  // Cancellation email
+  try {
+    const user = await User.findById(req.user.id);
+    await emailService.sendBookingCancellation(user.email, user.name, booking);
+  } catch (emailError) {
+    console.error("Cancel email failed:", emailError.message);
+  }
+
   res.status(200).json({
     success: true,
     message: "Booking cancelled successfully",
@@ -108,7 +118,7 @@ exports.cancelBooking = catchAsync(async (req, res, next) => {
   });
 });
 
-// ── Mock Payment (Razorpay replace) ──────────────────────────────────────────
+// ── Mock Payment ──────────────────────────────────────────────────────────────
 exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   const booking = await Booking.findById(req.params.id);
 
@@ -117,7 +127,6 @@ exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   if (booking.paymentStatus === "paid") return next(new AppError("Already paid", 400));
   if (booking.status === "cancelled") return next(new AppError("Cannot pay for cancelled booking", 400));
 
-  // Mock payment — directly paid mark பண்ணு
   const mockPaymentId = `PAY-${Date.now()}-${Math.random()
     .toString(36)
     .substring(2, 8)
@@ -127,6 +136,14 @@ exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   booking.paymentId = mockPaymentId;
   await booking.save();
 
+  // Payment success email
+  try {
+    const user = await User.findById(req.user.id);
+    await emailService.sendPaymentSuccess(user.email, user.name, booking);
+  } catch (emailError) {
+    console.error("Payment email failed:", emailError.message);
+  }
+
   res.status(200).json({
     success: true,
     message: "Payment successful! 🎉",
@@ -135,37 +152,11 @@ exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   });
 });
 
-// ── Verify Payment — not needed for mock ─────────────────────────────────────
+// ── Verify Payment ────────────────────────────────────────────────────────────
 exports.verifyPayment = catchAsync(async (req, res, next) => {
   res.status(200).json({
     success: true,
     message: "Payment verified!",
-  });
-});
-
-// ── Verify Payment ────────────────────────────────────────────────────────────
-exports.verifyPayment = catchAsync(async (req, res, next) => {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-
-  const body = razorpay_order_id + "|" + razorpay_payment_id;
-  const expectedSignature = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-    .update(body)
-    .digest("hex");
-
-  if (expectedSignature !== razorpay_signature) {
-    return next(new AppError("Payment verification failed", 400));
-  }
-
-  const booking = await Booking.findById(req.params.id);
-  booking.paymentStatus = "paid";
-  booking.paymentId = razorpay_payment_id;
-  await booking.save();
-
-  res.status(200).json({
-    success: true,
-    message: "Payment successful! 🎉",
-    booking,
   });
 });
 
