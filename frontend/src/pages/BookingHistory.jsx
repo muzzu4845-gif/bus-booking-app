@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import Navbar from "../components/common/Navbar";
 import { bookingService } from "../services/bookingService";
+import { notifyBookingCancelled } from "../services/notificationService";
 
 // Status badge colors
 const statusColors = {
@@ -47,6 +48,7 @@ export default function BookingHistory() {
     try {
       await bookingService.cancelBooking(bookingId);
       toast.success("Booking cancelled");
+      notifyBookingCancelled(booking); // ← இதை add பண்ணு
       fetchBookings(); // Refresh list
     } catch (error) {
       toast.error(error.response?.data?.message || "Cancel failed");

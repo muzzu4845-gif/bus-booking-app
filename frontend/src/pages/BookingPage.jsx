@@ -7,6 +7,7 @@ import Navbar from "../components/common/Navbar";
 import SeatSelector from "../components/booking/SeatSelector";
 import { busService } from "../services/busService";
 import { bookingService } from "../services/bookingService";
+import { notifyBookingConfirmed } from "../services/notificationService";
 
 export default function BookingPage() {
   const { busId } = useParams(); // URL la இருந்து busId எடு
@@ -43,24 +44,24 @@ export default function BookingPage() {
   };
 
   // Booking confirm
-  const handleBooking = async () => {
-    if (selectedSeats.length === 0) {
-      toast.error("Please select at least one seat");
-      return;
-    }
+const handleBooking = async () => {
+  if (selectedSeats.length === 0) {
+    toast.error("Please select at least one seat");
+    return;
+  }
 
-    setBooking(true);
-    try {
-      const data = await bookingService.createBooking(busId, selectedSeats);
-      toast.success("Booking confirmed! 🎉");
-      // Payment page க்கு redirect பண்ணு
-      navigate(`/payment/${data.booking._id}`);
-    } catch (error) {
-      toast.error(error.response?.data?.message || "Booking failed");
-    } finally {
-      setBooking(false);
-    }
-  };
+  setBooking(true);
+  try {
+    const data = await bookingService.createBooking(busId, selectedSeats);
+    toast.success("Booking confirmed! 🎉");
+    notifyBookingConfirmed(data.booking); // ← இந்த line add பண்ணு
+    navigate(`/payment/${data.booking._id}`);
+  } catch (error) {
+    toast.error(error.response?.data?.message || "Booking failed");
+  } finally {
+    setBooking(false);
+  }
+};
 
   if (loading) {
     return (

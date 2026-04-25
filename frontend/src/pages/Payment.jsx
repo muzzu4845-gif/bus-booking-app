@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import Navbar from "../components/common/Navbar";
 import { bookingService } from "../services/bookingService";
 import api from "../services/api";
+import { notifyPaymentSuccess } from "../services/notificationService";
 
 export default function Payment() {
   const { bookingId } = useParams();
@@ -46,6 +47,8 @@ export default function Payment() {
         setPaid(true);
         setBooking(res.data.booking);
         toast.success("Payment successful! 🎉");
+       notifyPaymentSuccess(res.data.booking); // ← இதை add பண்ணு
+
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Payment failed");

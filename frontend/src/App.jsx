@@ -16,8 +16,15 @@ import BookingHistory from "./pages/BookingHistory";
 import Payment from "./pages/Payment";
 import Dashboard from "./pages/admin/Dashboard";
 import ManageBuses from "./pages/admin/ManageBuses";
+import { requestNotificationPermission } from "./services/notificationService";
 
 export default function App() {
+
+  // ← இதை add பண்ணு
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []); 
+  
   return (
     <BrowserRouter>
       {/* AuthProvider — எல்லா pages க்கும் user state கிடைக்கும் */}
