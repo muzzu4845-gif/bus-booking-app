@@ -10,7 +10,8 @@ const app = express();
 app.use(cors({
   origin: [
     "http://localhost:3000",
-    "https://bus-booking-app-gx5o.vercel.app"
+    "https://bus-booking-app-gx5o.vercel.app",
+    "https://bus-booking-app-roan.vercel.app",
   ],
   credentials: true,
 }));
