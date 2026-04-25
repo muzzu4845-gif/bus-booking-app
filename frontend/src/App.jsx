@@ -1,5 +1,5 @@
 // App.jsx — Routing setup + AuthProvider wrap பண்றோம்
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 
