@@ -30,6 +30,12 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "admin"], // இந்த 2 values மட்டும் allowed
       default: "user",
     },
+
+    phone: {
+  type: String,
+  trim: true,
+  default: null,
+},
   },
   {
     timestamps: true, // createdAt, updatedAt — automatically add ஆகும்
