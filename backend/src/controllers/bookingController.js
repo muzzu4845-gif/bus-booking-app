@@ -3,6 +3,8 @@ const Booking = require("../models/Booking");
 const Bus = require("../models/Bus");
 const AppError = require("../utils/AppError");
 const catchAsync = require("../utils/catchAsync");
+const User = require("../models/User");
+const smsService = require("../services/smsService");
 
 // ── Create Booking ────────────────────────────────────────────────────────────
 exports.createBooking = catchAsync(async (req, res, next) => {
@@ -54,6 +56,15 @@ exports.createBooking = catchAsync(async (req, res, next) => {
     },
   });
 
+  // SMS send பண்ணு
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.phone) {
+      await smsService.sendBookingConfirmedSMS(user.phone, booking);
+    }
+  } catch (smsError) {
+    console.error("Booking SMS failed:", smsError.message);
+  }
 
   res.status(201).json({
     success: true,
@@ -94,6 +105,15 @@ exports.cancelBooking = catchAsync(async (req, res, next) => {
   booking.paymentStatus = booking.paymentStatus === "paid" ? "refunded" : "unpaid";
   await booking.save();
 
+  // SMS send பண்ணு
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.phone) {
+      await smsService.sendBookingCancelledSMS(user.phone, booking);
+    }
+  } catch (smsError) {
+    console.error("Cancel SMS failed:", smsError.message);
+  }
 
   res.status(200).json({
     success: true,
@@ -120,6 +140,15 @@ exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   booking.paymentId = mockPaymentId;
   await booking.save();
 
+  // SMS send பண்ணு
+  try {
+    const user = await User.findById(req.user.id);
+    if (user.phone) {
+      await smsService.sendPaymentSuccessSMS(user.phone, booking);
+    }
+  } catch (smsError) {
+    console.error("Payment SMS failed:", smsError.message);
+  }
 
   res.status(200).json({
     success: true,
