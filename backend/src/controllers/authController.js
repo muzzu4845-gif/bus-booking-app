@@ -17,7 +17,7 @@ const generateToken = (userId) => {
 // ── Register ──────────────────────────────────────────────────────────────────
 // POST /api/auth/register
 exports.register = catchAsync(async (req, res, next) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, phone } = req.body;
 
   // 1. Email already exists-ஆ nu check பண்ணு
   const existingUser = await User.findOne({ email });
@@ -26,7 +26,7 @@ exports.register = catchAsync(async (req, res, next) => {
   }
 
   // 2. User create பண்ணு — password pre-save hook la automatically hash ஆகும்
-  const user = await User.create({ name, email, password });
+  const user = await User.create({ name, email, password, phone });
 
   // 3. Token generate பண்ணு
   const token = generateToken(user._id);
