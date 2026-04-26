@@ -7,7 +7,12 @@ import { useAuth } from "../hooks/useAuth";
 import { authService } from "../services/authService";
 
 export default function Register() {
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    password: "",
+    phone: "",
+  });
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -19,7 +24,6 @@ export default function Register() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Basic validation
     if (form.password.length < 6) {
       toast.error("Password must be at least 6 characters");
       return;
@@ -41,7 +45,6 @@ export default function Register() {
   return (
     <div className="min-h-screen bg-dark-300 flex items-center justify-center px-4">
 
-      {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-96 h-96 bg-secondary/10 rounded-full blur-3xl" />
       </div>
@@ -54,7 +57,6 @@ export default function Register() {
       >
         <div className="bg-dark-200 border border-white/10 rounded-2xl p-8">
 
-          {/* Header */}
           <div className="text-center mb-8">
             <span className="text-4xl">🎟️</span>
             <h1 className="text-2xl font-bold text-white mt-2">
@@ -65,7 +67,6 @@ export default function Register() {
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
 
             {/* Name */}
@@ -96,6 +97,21 @@ export default function Register() {
                 onChange={handleChange}
                 placeholder="you@example.com"
                 required
+                className="w-full bg-dark-300 border border-white/10 rounded-lg px-4 py-3 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-primary transition-colors"
+              />
+            </div>
+
+            {/* Phone */}
+            <div>
+              <label className="block text-sm text-slate-400 mb-1.5">
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                name="phone"
+                value={form.phone}
+                onChange={handleChange}
+                placeholder="9876543210"
                 className="w-full bg-dark-300 border border-white/10 rounded-lg px-4 py-3 text-white text-sm placeholder-slate-600 focus:outline-none focus:border-primary transition-colors"
               />
             </div>
