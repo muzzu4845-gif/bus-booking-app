@@ -22,6 +22,7 @@ exports.register = catchAsync(async (req, res, next) => {
   }
 
   const user = await User.create({ name, email, password, phone });
+  console.log("Created user phone:", user.phone); // debugX
   const token = generateToken(user._id);
 
   res.status(201).json({
