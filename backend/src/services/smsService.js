@@ -4,25 +4,23 @@ const axios = require("axios");
 // ── Send SMS ──────────────────────────────────────────────────────────────────
 const sendSMS = async (phone, message) => {
   try {
-    const response = await axios.post(
-      "https://www.fast2sms.com/dev/bulkV2",
+    const response = await axios.get(
+      `https://www.fast2sms.com/dev/bulkV2`,
       {
-        route: "q",
-        message: message,
-        language: "english",
-        flash: 0,
-        numbers: phone,
-      },
-      {
-        headers: {
+        params: {
           authorization: process.env.FAST2SMS_API_KEY,
-        },
+          route: "q",
+          message: message,
+          language: "english",
+          flash: 0,
+          numbers: phone,
+        }
       }
     );
     console.log("SMS sent:", response.data);
     return response.data;
   } catch (error) {
-    console.error("SMS failed:", error.message);
+    console.error("SMS failed:", error.response?.data || error.message);
   }
 };
 
