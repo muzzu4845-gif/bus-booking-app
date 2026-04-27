@@ -9,7 +9,7 @@ const sendSMS = async (phone, message) => {
       {
         params: {
           authorization: process.env.FAST2SMS_API_KEY,
-          route: "q",
+          route: "v3",
           message: message,
           language: "english",
           flash: 0,
