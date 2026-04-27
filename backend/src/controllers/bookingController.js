@@ -59,8 +59,14 @@ exports.createBooking = catchAsync(async (req, res, next) => {
   // SMS send பண்ணு
   try {
     const user = await User.findById(req.user.id);
-    if (user.phone) {
+    console.log("=== SMS DEBUG ===");
+    console.log("User ID:", req.user.id);
+    console.log("User phone:", user?.phone);
+    if (user?.phone) {
+      console.log("Sending SMS to:", user.phone);
       await smsService.sendBookingConfirmedSMS(user.phone, booking);
+    } else {
+      console.log("No phone — SMS skipped");
     }
   } catch (smsError) {
     console.error("Booking SMS failed:", smsError.message);
@@ -108,7 +114,8 @@ exports.cancelBooking = catchAsync(async (req, res, next) => {
   // SMS send பண்ணு
   try {
     const user = await User.findById(req.user.id);
-    if (user.phone) {
+    console.log("Cancel SMS - User phone:", user?.phone);
+    if (user?.phone) {
       await smsService.sendBookingCancelledSMS(user.phone, booking);
     }
   } catch (smsError) {
@@ -143,7 +150,8 @@ exports.createPaymentOrder = catchAsync(async (req, res, next) => {
   // SMS send பண்ணு
   try {
     const user = await User.findById(req.user.id);
-    if (user.phone) {
+    console.log("Payment SMS - User phone:", user?.phone);
+    if (user?.phone) {
       await smsService.sendPaymentSuccessSMS(user.phone, booking);
     }
   } catch (smsError) {
