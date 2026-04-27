@@ -1,14 +1,15 @@
-// smsService.js — SMS using TextBelt (1 free SMS/day)
+// smsService.js — SMS using Android SMS Gateway via ngrok
 const axios = require("axios");
+
+const NGROK_URL = process.env.SMS_GATEWAY_URL || "https://entire-aqueduct-custard.ngrok-free.dev";
 
 const sendSMS = async (phone, message) => {
   try {
     const response = await axios.post(
-      "https://textbelt.com/text",
+      `${NGROK_URL}/send-sms`,
       {
-        phone: `+91${phone}`,
+        phone: phone,
         message: message,
-        key: "textbelt", // free key — 1 SMS/day
       }
     );
     console.log("SMS sent:", response.data);
@@ -26,7 +27,7 @@ exports.sendBookingConfirmedSMS = async (phone, booking) => {
 
 exports.sendPaymentSuccessSMS = async (phone, booking) => {
   if (!phone) return;
-  const message = `BusGo: Payment Successful! Rs.${booking.totalAmount} paid. Payment ID: ${booking.paymentId}`;
+  const message = `BusGo: Payment of Rs.${booking.totalAmount} successful! Payment ID: ${booking.paymentId}`;
   await sendSMS(phone, message);
 };
 
