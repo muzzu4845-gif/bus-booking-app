@@ -1,17 +1,22 @@
-// smsService.js — SMS using Android SMS Gateway via ngrok
 const axios = require("axios");
 
-const NGROK_URL = process.env.SMS_GATEWAY_URL || "https://entire-aqueduct-custard.ngrok-free.dev";
-
 const sendSMS = async (phone, message) => {
+  const gatewayUrl = process.env.SMS_GATEWAY_URL;
+  console.log("Gateway URL from env:", gatewayUrl);
+  
+  if (!gatewayUrl) {
+    console.error("SMS_GATEWAY_URL not set!");
+    return;
+  }
+
+  const url = `${gatewayUrl}/send-sms`;
+  console.log("Full SMS URL:", url);
+
   try {
-    const response = await axios.post(
-      `${NGROK_URL}/send-sms`,
-      {
-        phone: phone,
-        message: message,
-      }
-    );
+    const response = await axios.post(url, {
+      phone: phone,
+      message: message,
+    });
     console.log("SMS sent:", response.data);
     return response.data;
   } catch (error) {
@@ -27,12 +32,12 @@ exports.sendBookingConfirmedSMS = async (phone, booking) => {
 
 exports.sendPaymentSuccessSMS = async (phone, booking) => {
   if (!phone) return;
-  const message = `BusGo: Payment of Rs.${booking.totalAmount} successful! Payment ID: ${booking.paymentId}`;
+  const message = `BusGo: Payment of Rs.${booking.totalAmount} successful!`;
   await sendSMS(phone, message);
 };
 
 exports.sendBookingCancelledSMS = async (phone, booking) => {
   if (!phone) return;
-  const message = `BusGo: Booking Cancelled. ${booking.busSnapshot?.from} to ${booking.busSnapshot?.to}. Seats released.`;
+  const message = `BusGo: Booking Cancelled. ${booking.busSnapshot?.from} to ${booking.busSnapshot?.to}.`;
   await sendSMS(phone, message);
 };
